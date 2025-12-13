@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>MyBlog</title>
+  <link rel="stylesheet" href="https://aki-masaki.github.io/blog/style.css">
+</head>
+
+<body>
+  <div class="header">
+    <h2>
+      <a href="https://aki-masaki.github.io/blog" style="text-decoration: none;">niki's blog</a>
+    </h2>
+    <nav>
+      <a href="https://github.com/aki-masaki" target="_blank">github</a>
+      <a href="https://aki-masaki.github.io/blog/posts">posts</a>
+    </nav>
+  </div>
+  <section class="section">
+    <div class="container">
+      
+<h1 class="title">
+  nvim virtual colors
+</h1>
+<p class="subtitle"><strong>2025-12-13</strong></p>
+<p>the first technical post of my blog will be about my neovim plugin that displays css colors directly in the editor. like "color decorators" in vscode</p>
+<p>the plugin's source code is available on <a href="https://github.com/aki-masaki/nvim-virtual-colors">github</a></p>
+<p><img src="https://raw.githubusercontent.com/aki-masaki/nvim-virtual-colors/refs/heads/main/screenshot.png" alt="screenshot" /></p>
+<p>this is the folder structure of the project</p>
+<pre style="background-color:#2b303b;color:#c0c5ce;"><code><span>.
+</span><span>├── lua
+</span><span>│   └── nvim-virtual-colors.lua
+</span><span>├── README.md
+</span><span>└── screenshot.png
+</span><span>
+</span><span>2 directories, 3 files
+</span></code></pre>
+<p>code inside <code>lua/</code> will not run unless required. it has only one file which exposes a module (in the file the module is called M, but in <code>init.lua</code> neovim config file it is exposed as the name of the file, in this case <code>nvim-virtual-colors</code>)</p>
+<p>let's take a look inside that file</p>
+<p>we can see it creates a variable called <code>M</code> (for module), it declares functions in the module and then returns it (by returning we can call <code>require</code> on it)</p>
+<p>the functions in the module, briefly explained:</p>
+<ul>
+<li><code>hide</code> - hides the virtual colors</li>
+<li><code>show</code> - hides the virtual colors if already present, then shows them</li>
+<li><code>init_autocmd</code> - autocmd is used to listen to events, here we initialize the listeners</li>
+<li><code>detect_colors</code> - the name is a bit misleading since this function is also responsible for creating the virtual text</li>
+<li><code>setup</code> - this function is meant to be called in the neovim config file to configure the plugin (and in this plugin's case to actually turn it on)</li>
+</ul>
+<p>now lets dive into each function's implementation and explain every part:)</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">function </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#8fa1b3;">hide</span><span>()
+</span><span>  </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.ns_id ~= </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_buf_clear_namespace</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">M</span><span>.ns_id, </span><span style="color:#d08770;">0</span><span>, -</span><span style="color:#d08770;">1</span><span>)
+</span><span>  </span><span style="color:#b48ead;">end
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p><code>M.ns_id</code> is the id of the <a href="https://neovim.io/doc/user/api.html#namespace">namespace</a> of my plugin. each virtual text must belong to a namespace</p>
+<p>we call <a href="https://neovim.io/doc/user/api.html#nvim_buf_clear_namespace()"><code>nvim_buf_clear_namespace</code></a> to clear extmarks (virtual text) from the entire file (the function is used to clear from a region but we pass line_start = 0 and line_end = -1 to clear the whole buffer)</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">function </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#8fa1b3;">show</span><span>()
+</span><span>  </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.ns_id ~= </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_buf_clear_namespace</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">M</span><span>.ns_id, </span><span style="color:#d08770;">0</span><span>, -</span><span style="color:#d08770;">1</span><span>)
+</span><span>  </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>  </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#bf616a;">detect_colors</span><span>()
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>nothing too interesting here...we just check if we already created a namespace (we create it inside <code>setup</code>), and if yes, clear it</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">function </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#8fa1b3;">init_autocmd</span><span>()
+</span><span>  </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">files_pattern </span><span>= { &#39;</span><span style="color:#a3be8c;">*.css</span><span>&#39; }
+</span><span>
+</span><span>  </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_create_autocmd</span><span>(&#39;</span><span style="color:#a3be8c;">InsertEnter</span><span>&#39;, {
+</span><span>    </span><span style="color:#a3be8c;">pattern </span><span>= </span><span style="color:#bf616a;">files_pattern</span><span>,
+</span><span>    </span><span style="color:#8fa1b3;">callback </span><span>= </span><span style="color:#b48ead;">function</span><span>(ev)
+</span><span>      </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#bf616a;">hide</span><span>()
+</span><span>    </span><span style="color:#b48ead;">end
+</span><span>  })
+</span><span>
+</span><span>  </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_create_autocmd</span><span>(&#39;</span><span style="color:#a3be8c;">InsertLeave</span><span>&#39;, {
+</span><span>    </span><span style="color:#a3be8c;">pattern </span><span>= </span><span style="color:#bf616a;">files_pattern</span><span>,
+</span><span>    </span><span style="color:#8fa1b3;">callback </span><span>= </span><span style="color:#b48ead;">function</span><span>(ev)
+</span><span>      </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#bf616a;">detect_colors</span><span>()
+</span><span>    </span><span style="color:#b48ead;">end
+</span><span>  })
+</span><span>
+</span><span>  </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_create_autocmd</span><span>(&#39;</span><span style="color:#a3be8c;">BufEnter</span><span>&#39;, {
+</span><span>    </span><span style="color:#a3be8c;">pattern </span><span>= </span><span style="color:#bf616a;">files_pattern</span><span>,
+</span><span>    </span><span style="color:#8fa1b3;">callback </span><span>= </span><span style="color:#b48ead;">function</span><span>(ev)
+</span><span>      </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#bf616a;">show</span><span>()
+</span><span>    </span><span style="color:#b48ead;">end
+</span><span>  })
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>here <code>files_pattern</code> says for which files to bind to those events. '*.css' means every file that ends in <code>.css</code></p>
+<p>as we stated before, autocmd's are used to listen to events. the events present here are:</p>
+<ul>
+<li><code>InsertEnter</code> - when the user <em>enters</em> insert mode (generally with <code>a</code> or <code>i</code>)</li>
+<li><code>InsertLeave</code> - when the user <em>leaves</em> insert mode (generally with <code>esc</code>)</li>
+<li><code>BufEnter</code> - when the user enters a buffer (also fires when reopened)</li>
+</ul>
+<p>documentation for <code>nvim_create_autocmd</code> can be found <a href="https://neovim.io/doc/user/api.html#nvim_create_autocmd()">here</a> and for <code>autocmd</code> in general <a href="https://neovim.io/doc/user/autocmd.html">here</a></p>
+<p>before addressing the elephant in the room (the <code>detect_colors</code> function) let's see the <code>setup</code> function first</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">function </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#8fa1b3;">setup</span><span>(opts)
+</span><span>  </span><span style="color:#bf616a;">opts </span><span>= </span><span style="color:#bf616a;">opts </span><span>or {}
+</span><span>
+</span><span>  </span><span style="color:#bf616a;">M</span><span>.opts = {
+</span><span>    </span><span style="color:#a3be8c;">display </span><span>= </span><span style="color:#bf616a;">opts</span><span>.display or &#39;</span><span style="color:#a3be8c;">bg</span><span>&#39;,
+</span><span>    </span><span style="color:#a3be8c;">display_on_sign_column </span><span>= </span><span style="color:#bf616a;">opts</span><span>.display_on_sign_column or </span><span style="color:#d08770;">true
+</span><span>  }
+</span><span>
+</span><span>  </span><span style="color:#bf616a;">M</span><span>.ns_id = </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_create_namespace</span><span>(&quot;</span><span style="color:#a3be8c;">virtual-colors</span><span>&quot;)
+</span><span>
+</span><span>  </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#bf616a;">init_autocmd</span><span>()
+</span><span>
+</span><span>  </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_create_user_command</span><span>(&quot;</span><span style="color:#a3be8c;">HideVirtualColors</span><span>&quot;, </span><span style="color:#bf616a;">M</span><span>.hide, {})
+</span><span>  </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_create_user_command</span><span>(&quot;</span><span style="color:#a3be8c;">ShowVirtualColors</span><span>&quot;, </span><span style="color:#bf616a;">M</span><span>.show, {})
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>it takes <code>opts</code> (a table) as a parameter for <em>options</em> (configuring the plugin). if not present, it defaults to <code>{}</code></p>
+<p>then we set the options in <code>M.opts</code> (defaulting them if not present in <code>opts</code>), we create the namespace and store the id, we init the autocmd event listeners and we define two user commands: <code>HideVirtualColors</code> and <code>ShowVirtualColors</code> (this permits the user to type these into the command line)</p>
+<p>now lets see what <code>detect_colors</code> contains!</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">function </span><span style="color:#bf616a;">M</span><span>.</span><span style="color:#8fa1b3;">detect_colors</span><span>()
+</span><span>  </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">lines </span><span>= </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_buf_get_lines</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#d08770;">0</span><span>, -</span><span style="color:#d08770;">1</span><span>, </span><span style="color:#d08770;">false</span><span>)
+</span><span>  </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">offset </span><span>= </span><span style="color:#d08770;">0
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">for </span><span style="color:#bf616a;">i</span><span>, </span><span style="color:#bf616a;">line </span><span style="color:#b48ead;">in </span><span style="color:#96b5b4;">ipairs</span><span>(</span><span style="color:#bf616a;">lines</span><span>) </span><span style="color:#b48ead;">do
+</span><span>    </span><span style="color:#b48ead;">while </span><span style="color:#d08770;">true </span><span style="color:#b48ead;">do
+</span><span>      </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">rgb_index </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">rgb</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span>      </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">color_index </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">#</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span>      </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">semic_index </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">;</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span>
+</span><span>      </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">color_index </span><span>~= </span><span style="color:#d08770;">nil </span><span>and </span><span style="color:#bf616a;">semic_index </span><span>~= </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">len </span><span>= </span><span style="color:#bf616a;">semic_index </span><span>- </span><span style="color:#bf616a;">color_index </span><span>- </span><span style="color:#d08770;">1
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span>not (</span><span style="color:#bf616a;">len </span><span>== </span><span style="color:#d08770;">3 </span><span>or </span><span style="color:#bf616a;">len </span><span>== </span><span style="color:#d08770;">6</span><span>) </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#b48ead;">return
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">color </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#bf616a;">color_index </span><span>+ </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">semic_index </span><span>- </span><span style="color:#d08770;">1</span><span>)
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">len </span><span>== </span><span style="color:#d08770;">3 </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#bf616a;">color </span><span>= </span><span style="color:#bf616a;">color</span><span>:</span><span style="color:#bf616a;">rep</span><span>(</span><span style="color:#d08770;">2</span><span>)
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">red   </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">color</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#d08770;">1</span><span>, </span><span style="color:#d08770;">2</span><span>), </span><span style="color:#d08770;">16</span><span>)
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">green </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">color</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#d08770;">3</span><span>, </span><span style="color:#d08770;">4</span><span>), </span><span style="color:#d08770;">16</span><span>)
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">blue  </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">color</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#d08770;">5</span><span>, </span><span style="color:#d08770;">6</span><span>), </span><span style="color:#d08770;">16</span><span>)
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">opts
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display == &#39;</span><span style="color:#a3be8c;">bg</span><span>&#39; or </span><span style="color:#bf616a;">M</span><span>.opts.display == &#39;</span><span style="color:#a3be8c;">bg-fn</span><span>&#39; </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">fg
+</span><span>
+</span><span>          </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">red </span><span>+ </span><span style="color:#bf616a;">green </span><span>+ </span><span style="color:#bf616a;">blue </span><span>&lt; </span><span style="color:#d08770;">200 </span><span style="color:#b48ead;">then
+</span><span>            </span><span style="color:#bf616a;">fg </span><span>= &quot;</span><span style="color:#a3be8c;">#ffffff</span><span>&quot;
+</span><span>          </span><span style="color:#b48ead;">else
+</span><span>            </span><span style="color:#bf616a;">fg </span><span>= &quot;</span><span style="color:#a3be8c;">#000000</span><span>&quot;
+</span><span>          </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>          </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_set_hl</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">color</span><span>, { </span><span style="color:#a3be8c;">bg </span><span>= &#39;</span><span style="color:#a3be8c;">#</span><span>&#39; .. </span><span style="color:#bf616a;">color </span><span>, </span><span style="color:#a3be8c;">fg </span><span>= </span><span style="color:#bf616a;">fg</span><span>})
+</span><span>
+</span><span>          </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display == &#39;</span><span style="color:#a3be8c;">bg</span><span>&#39; </span><span style="color:#b48ead;">then
+</span><span>            </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>              </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">#</span><span>&#39; .. </span><span style="color:#bf616a;">color</span><span>, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>              </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">overlay</span><span>&#39;,
+</span><span>            }
+</span><span>          </span><span style="color:#b48ead;">else
+</span><span>            </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>              </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">#</span><span>&#39;, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>              </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">overlay</span><span>&#39;,
+</span><span>            }
+</span><span>          </span><span style="color:#b48ead;">end
+</span><span>        </span><span style="color:#b48ead;">else
+</span><span>          </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_set_hl</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">color</span><span>, { </span><span style="color:#a3be8c;">fg </span><span>= &#39;</span><span style="color:#a3be8c;">#</span><span>&#39; .. </span><span style="color:#bf616a;">color</span><span>})
+</span><span>
+</span><span>          </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>            </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">█</span><span>&#39;, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>            </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">inline</span><span>&#39;,
+</span><span>          }
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display_on_sign_column == </span><span style="color:#d08770;">true </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#bf616a;">opts</span><span>.sign_text = &#39;  &#39;
+</span><span>          </span><span style="color:#bf616a;">opts</span><span>.sign_hl_group = </span><span style="color:#bf616a;">color
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">mark_id </span><span>= </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_buf_set_extmark</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">M</span><span>.ns_id, </span><span style="color:#bf616a;">i </span><span>- </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">color_index </span><span>- </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">opts</span><span>)
+</span><span>
+</span><span>        </span><span style="color:#bf616a;">offset </span><span>= </span><span style="color:#bf616a;">offset </span><span>+ </span><span style="color:#bf616a;">semic_index </span><span>+ </span><span style="color:#d08770;">1
+</span><span>      </span><span style="color:#b48ead;">elseif </span><span style="color:#bf616a;">rgb_index </span><span>~= </span><span style="color:#d08770;">nil </span><span>and </span><span style="color:#bf616a;">semic_index </span><span>~= </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">lpar </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">%(</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">rpar </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">%)</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">lpar </span><span>== </span><span style="color:#d08770;">nil </span><span>or </span><span style="color:#bf616a;">rpar </span><span>== </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#b48ead;">break
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">comma1 </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">,</span><span>&#39;, </span><span style="color:#bf616a;">lpar</span><span>)
+</span><span>        
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">comma1 </span><span>== </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#b48ead;">break
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">comma2 </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">,</span><span>&#39;, </span><span style="color:#bf616a;">comma1 </span><span>+ </span><span style="color:#d08770;">1</span><span>)
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">comma2 </span><span>== </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#b48ead;">break
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">red </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#bf616a;">lpar </span><span>+ </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">comma1 </span><span>- </span><span style="color:#d08770;">1</span><span>))
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">green </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#bf616a;">comma1 </span><span>+ </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">comma2 </span><span>- </span><span style="color:#d08770;">1</span><span>))
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">blue </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#bf616a;">comma2 </span><span>+ </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">rpar </span><span>- </span><span style="color:#d08770;">1</span><span>))
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">red </span><span>== </span><span style="color:#d08770;">nil </span><span>or </span><span style="color:#bf616a;">red </span><span>&lt; </span><span style="color:#d08770;">0 </span><span>or </span><span style="color:#bf616a;">red </span><span>&gt; </span><span style="color:#d08770;">255 </span><span>or </span><span style="color:#bf616a;">green </span><span>== </span><span style="color:#d08770;">nil </span><span>or </span><span style="color:#bf616a;">green </span><span>&lt; </span><span style="color:#d08770;">0 </span><span>or </span><span style="color:#bf616a;">green </span><span>&gt; </span><span style="color:#d08770;">255 </span><span>or </span><span style="color:#bf616a;">blue </span><span>== </span><span style="color:#d08770;">nil </span><span>or </span><span style="color:#bf616a;">blue </span><span>&lt; </span><span style="color:#d08770;">0 </span><span>or </span><span style="color:#bf616a;">blue </span><span>&gt; </span><span style="color:#d08770;">255 </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#b48ead;">break
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">color </span><span>= string.</span><span style="color:#96b5b4;">format</span><span>(&quot;</span><span style="color:#a3be8c;">%02x%02x%02x</span><span>&quot;, </span><span style="color:#bf616a;">red</span><span>, </span><span style="color:#bf616a;">green</span><span>, </span><span style="color:#bf616a;">blue</span><span>)
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display == &#39;</span><span style="color:#a3be8c;">bg</span><span>&#39; or </span><span style="color:#bf616a;">M</span><span>.opts.display == &#39;</span><span style="color:#a3be8c;">bg-fn</span><span>&#39; </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">fg
+</span><span>
+</span><span>          </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">red </span><span>+ </span><span style="color:#bf616a;">green </span><span>+ </span><span style="color:#bf616a;">blue </span><span>&lt; </span><span style="color:#d08770;">200 </span><span style="color:#b48ead;">then
+</span><span>            </span><span style="color:#bf616a;">fg </span><span>= &quot;</span><span style="color:#a3be8c;">#ffffff</span><span>&quot;
+</span><span>          </span><span style="color:#b48ead;">else
+</span><span>            </span><span style="color:#bf616a;">fg </span><span>= &quot;</span><span style="color:#a3be8c;">#000000</span><span>&quot;
+</span><span>          </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>          </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_set_hl</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">color</span><span>, { </span><span style="color:#a3be8c;">bg </span><span>= &#39;</span><span style="color:#a3be8c;">#</span><span>&#39; .. </span><span style="color:#bf616a;">color </span><span>, </span><span style="color:#a3be8c;">fg </span><span>= </span><span style="color:#bf616a;">fg</span><span>})
+</span><span>
+</span><span>          </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display == &#39;</span><span style="color:#a3be8c;">bg</span><span>&#39; </span><span style="color:#b48ead;">then
+</span><span>            </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>              </span><span style="color:#a3be8c;">virt_text </span><span>= {{string.</span><span style="color:#96b5b4;">format</span><span>(&quot;</span><span style="color:#a3be8c;">rgb(%d, %d, %d)</span><span>&quot;, </span><span style="color:#bf616a;">red</span><span>, </span><span style="color:#bf616a;">green</span><span>, </span><span style="color:#bf616a;">blue</span><span>), </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>              </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">overlay</span><span>&#39;,
+</span><span>            }
+</span><span>          </span><span style="color:#b48ead;">else
+</span><span>            </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>              </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">rgb</span><span>&#39;, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>              </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">overlay</span><span>&#39;,
+</span><span>            }
+</span><span>          </span><span style="color:#b48ead;">end
+</span><span>        </span><span style="color:#b48ead;">else
+</span><span>          </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_set_hl</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">color</span><span>, { </span><span style="color:#a3be8c;">fg </span><span>= &#39;</span><span style="color:#a3be8c;">#</span><span>&#39; .. </span><span style="color:#bf616a;">color</span><span>})
+</span><span>
+</span><span>          </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>            </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">█</span><span>&#39;, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>            </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">inline</span><span>&#39;,
+</span><span>          }
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display_on_sign_column == </span><span style="color:#d08770;">true </span><span style="color:#b48ead;">then
+</span><span>          </span><span style="color:#bf616a;">opts</span><span>.sign_text = &#39;  &#39;
+</span><span>          </span><span style="color:#bf616a;">opts</span><span>.sign_hl_group = </span><span style="color:#bf616a;">color
+</span><span>        </span><span style="color:#b48ead;">end
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">mark_id </span><span>= </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_buf_set_extmark</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">M</span><span>.ns_id, </span><span style="color:#bf616a;">i </span><span>- </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">rgb_index </span><span>- </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">opts</span><span>)
+</span><span>
+</span><span>        </span><span style="color:#bf616a;">offset </span><span>= </span><span style="color:#bf616a;">offset </span><span>+ </span><span style="color:#bf616a;">rpar </span><span>+ </span><span style="color:#d08770;">1
+</span><span>      </span><span style="color:#b48ead;">else
+</span><span>        </span><span style="color:#bf616a;">offset </span><span>= </span><span style="color:#d08770;">0
+</span><span>
+</span><span>        </span><span style="color:#b48ead;">break
+</span><span>      </span><span style="color:#b48ead;">end
+</span><span>    </span><span style="color:#b48ead;">end
+</span><span>  </span><span style="color:#b48ead;">end
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>woa! this function is 144 lines of code, thats a lot... lets split it up</p>
+<p>first we get the lines of the buffer and we initialise <code>offset</code> (youll see what this is used for later) to <code>0</code></p>
+<p>then we create a for loop <code>for i, line in ipairs(lines) do</code> and inside another while loop? the while loop is used to scan multiple colors in one line (example css: <code>color: #fff; background-color: #000;</code>), we break out of the loop when no color is present (after the ones we parsed already)</p>
+<p>now inside the while loop</p>
+<p>we first declare three variables:</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">rgb_index </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">rgb</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">color_index </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">#</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">semic_index </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">;</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span></code></pre>
+<p>they store the indeces in line where the specific character is found (starting from <code>offset</code> so if a line has two '#', and we wish to find the second one, we can start scanning <em>after</em> the first)<br />
+<strong>important</strong>: they are <code>nil</code> when they are not found</p>
+<pre style="background-color:#2b303b;color:#c0c5ce;"><code><span>color: #000;
+</span><span>1234567^ color_index = 8
+</span></code></pre>
+<p>after that, we can see a conditional: <code>if color_index ~= nil and semic_index ~= nil then</code> this means that a '#' is found <strong>and</strong> a ';' is found (color must be hex)</p>
+<p>inside that if, we can see this:</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">len </span><span>= </span><span style="color:#bf616a;">semic_index </span><span>- </span><span style="color:#bf616a;">color_index </span><span>- </span><span style="color:#d08770;">1
+</span><span>
+</span><span style="color:#b48ead;">if </span><span>not (</span><span style="color:#bf616a;">len </span><span>== </span><span style="color:#d08770;">3 </span><span>or </span><span style="color:#bf616a;">len </span><span>== </span><span style="color:#d08770;">6</span><span>) </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#b48ead;">return
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>why does <code>semic_index - color_index - 1</code> return the length?</p>
+<pre style="background-color:#2b303b;color:#c0c5ce;"><code><span>color: #000;
+</span><span>       ^   $    ^ = color_index = 8; $ = semic_index = 12;
+</span></code></pre>
+<p>but...<code>12 - 8</code> is 4, but there are only 3 zeroes! thats because we also include ';' in our length, thats why we substract 1 from the difference</p>
+<p>then we check to make sure that len is either 3 or 6</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">color </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#bf616a;">color_index </span><span>+ </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">semic_index </span><span>- </span><span style="color:#d08770;">1</span><span>)
+</span><span>
+</span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">len </span><span>== </span><span style="color:#d08770;">3 </span><span style="color:#b48ead;">then
+</span><span>  </span><span style="color:#bf616a;">color </span><span>= </span><span style="color:#bf616a;">color</span><span>:</span><span style="color:#bf616a;">rep</span><span>(</span><span style="color:#d08770;">2</span><span>)
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>the function <code>sub</code> takes a substring of line, from <code>color_index + 1</code> (the character after '#') until <code>semic_index - 1</code> (the character before ';') (<code>#00ff00;</code> -&gt; <code>00ff00</code>). then we check if the length is 3, in which case we just repeat it (<code>000</code> -&gt; <code>000000</code>)</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">red   </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">color</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#d08770;">1</span><span>, </span><span style="color:#d08770;">2</span><span>), </span><span style="color:#d08770;">16</span><span>)
+</span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">green </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">color</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#d08770;">3</span><span>, </span><span style="color:#d08770;">4</span><span>), </span><span style="color:#d08770;">16</span><span>)
+</span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">blue  </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">color</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#d08770;">5</span><span>, </span><span style="color:#d08770;">6</span><span>), </span><span style="color:#d08770;">16</span><span>)
+</span></code></pre>
+<p>then we convert the hex color into red, green and blue components. the second parameter to <code>tonumber</code> represents the base from which to convert from.</p>
+<p>then, we have conditionals so we have to split up:</p>
+<ul>
+<li>if display is either 'bg' or 'bg-fn':</li>
+</ul>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">fg
+</span><span>
+</span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">red </span><span>+ </span><span style="color:#bf616a;">green </span><span>+ </span><span style="color:#bf616a;">blue </span><span>&lt; </span><span style="color:#d08770;">200 </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#bf616a;">fg </span><span>= &quot;</span><span style="color:#a3be8c;">#ffffff</span><span>&quot;
+</span><span style="color:#b48ead;">else
+</span><span>    </span><span style="color:#bf616a;">fg </span><span>= &quot;</span><span style="color:#a3be8c;">#000000</span><span>&quot;
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>here we check the contrast of the color, if its low (dark) we set the fg (text color) to white, otherwise if its high (light) we set the fg to black.</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_set_hl</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">color</span><span>, { </span><span style="color:#a3be8c;">bg </span><span>= &#39;</span><span style="color:#a3be8c;">#</span><span>&#39; .. </span><span style="color:#bf616a;">color </span><span>, </span><span style="color:#a3be8c;">fg </span><span>= </span><span style="color:#bf616a;">fg</span><span>})
+</span></code></pre>
+<p>then we create a highlight group (in neovim, they are used to define the syntax color)</p>
+<p>then we split up...again...</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display == &#39;</span><span style="color:#a3be8c;">bg</span><span>&#39; </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>      </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">#</span><span>&#39; .. </span><span style="color:#bf616a;">color</span><span>, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>      </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">overlay</span><span>&#39;,
+</span><span>    }
+</span><span style="color:#b48ead;">else
+</span><span>    </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>      </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">#</span><span>&#39;, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>      </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">overlay</span><span>&#39;,
+</span><span>    }
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>not so different tho, if its 'bg' we set the virtual text to be the whole expression, otherwise just '#'.
+the second item inside <code>virt_text</code> is the name of the highlight group to apply (here we used the one we created earlier)
+<code>virt_text_pos = 'overlay'</code> means the virtual text will be displayed <em>over</em> the original text, replacing it.</p>
+<ul>
+<li>if display is not those:</li>
+</ul>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_set_hl</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">color</span><span>, { </span><span style="color:#a3be8c;">fg </span><span>= &#39;</span><span style="color:#a3be8c;">#</span><span>&#39; .. </span><span style="color:#bf616a;">color</span><span>})
+</span><span>
+</span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>    </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">█</span><span>&#39;, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>    </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">inline</span><span>&#39;,
+</span><span>}
+</span></code></pre>
+<p>here we dont have to worry about contrast since no background color is used. instead it displays a <a href="https://en.wikipedia.org/wiki/Block_Elements#:~:text=Full%20block">block character</a></p>
+<p>notice how here we used <code>virt_text_pos = 'inline'</code>? this means that, it will shift the characters to the right to make space for the virtual text.</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display_on_sign_column == </span><span style="color:#d08770;">true </span><span style="color:#b48ead;">then
+</span><span>  </span><span style="color:#bf616a;">opts</span><span>.sign_text = &#39;  &#39;
+</span><span>  </span><span style="color:#bf616a;">opts</span><span>.sign_hl_group = </span><span style="color:#bf616a;">color
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>this shows the color on the signcolumn (which is before the line numbers)</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">mark_id </span><span>= </span><span style="color:#bf616a;">vim</span><span>.api.</span><span style="color:#bf616a;">nvim_buf_set_extmark</span><span>(</span><span style="color:#d08770;">0</span><span>, </span><span style="color:#bf616a;">M</span><span>.ns_id, </span><span style="color:#bf616a;">i </span><span>- </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">color_index </span><span>- </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">opts</span><span>)
+</span></code></pre>
+<p>we <em>finally</em> get to create the actual virtual text (called <a href="https://neovim.io/doc/user/api.html#extmark">extmark</a>)</p>
+<p>we pass <code>0</code> as the first parameter for the current buffer, <code>M.ns_id</code> for the namespace it belongs to, <code>i - 1</code> is the line, we substract one because lua is 1-based but this function is 0-based...the same for <code>color_index - 1</code> (column), and we pass the <code>opts</code> we defined earlier</p>
+<p>and in the end</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#bf616a;">offset </span><span>= </span><span style="color:#bf616a;">offset </span><span>+ </span><span style="color:#bf616a;">semic_index </span><span>+ </span><span style="color:#d08770;">1
+</span></code></pre>
+<p>we add <code>semic_index + 1</code> to offset, which means next time start scanning from the character after ';'</p>
+<p>now we got to this: <code>elseif rgb_index ~= nil and semic_index ~= nil then</code> which means 'rgb' was found <strong>and</strong> a ';' was found (color must be rgb)</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">lpar </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">%(</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">rpar </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">%)</span><span>&#39;, </span><span style="color:#bf616a;">offset</span><span>)
+</span><span>
+</span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">lpar </span><span>== </span><span style="color:#d08770;">nil </span><span>or </span><span style="color:#bf616a;">rpar </span><span>== </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#b48ead;">break
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>we try to find <code>(</code> and <code>)</code>, we use <code>%</code> before them since in lua, <code>()</code> are called <a href="https://www.lua.org/pil/20.2.html#:~:text=magic%20characters"><em>magic characters</em></a> which must be escaped. if we can't find them, we break the loop</p>
+<p>then we do the same thing for commas:</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">comma1 </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">,</span><span>&#39;, </span><span style="color:#bf616a;">lpar</span><span>)
+</span><span>
+</span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">comma1 </span><span>== </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#b48ead;">break
+</span><span style="color:#b48ead;">end
+</span><span>
+</span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">comma2 </span><span>= </span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">find</span><span>(&#39;</span><span style="color:#a3be8c;">,</span><span>&#39;, </span><span style="color:#bf616a;">comma1 </span><span>+ </span><span style="color:#d08770;">1</span><span>)
+</span><span>
+</span><span style="color:#b48ead;">if </span><span style="color:#bf616a;">comma2 </span><span>== </span><span style="color:#d08770;">nil </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#b48ead;">break
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>we start searching for the first comma after '(' and for the second comma after the character after the first comma. if either cant be found, break the loop</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">red </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#bf616a;">lpar </span><span>+ </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">comma1 </span><span>- </span><span style="color:#d08770;">1</span><span>))
+</span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">green </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#bf616a;">comma1 </span><span>+ </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">comma2 </span><span>- </span><span style="color:#d08770;">1</span><span>))
+</span><span style="color:#b48ead;">local </span><span style="color:#bf616a;">blue </span><span>= </span><span style="color:#96b5b4;">tonumber</span><span>(</span><span style="color:#bf616a;">line</span><span>:</span><span style="color:#bf616a;">sub</span><span>(</span><span style="color:#bf616a;">comma2 </span><span>+ </span><span style="color:#d08770;">1</span><span>, </span><span style="color:#bf616a;">rpar </span><span>- </span><span style="color:#d08770;">1</span><span>))
+</span></code></pre>
+<p>then we extract the red, green and blue components from the string. red is between '(' and the first comma, green is after the first comma and before the second comma, and blue is after the second comma and before ')'. we substract and add <code>1</code> so we dont include those characters in the number</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">if </span><span style="color:#bf616a;">red </span><span>== </span><span style="color:#d08770;">nil </span><span>or </span><span style="color:#bf616a;">red </span><span>&lt; </span><span style="color:#d08770;">0 </span><span>or </span><span style="color:#bf616a;">red </span><span>&gt; </span><span style="color:#d08770;">255 </span><span>or </span><span style="color:#bf616a;">green </span><span>== </span><span style="color:#d08770;">nil </span><span>or </span><span style="color:#bf616a;">green </span><span>&lt; </span><span style="color:#d08770;">0 </span><span>or </span><span style="color:#bf616a;">green </span><span>&gt; </span><span style="color:#d08770;">255 </span><span>or </span><span style="color:#bf616a;">blue </span><span>== </span><span style="color:#d08770;">nil </span><span>or </span><span style="color:#bf616a;">blue </span><span>&lt; </span><span style="color:#d08770;">0 </span><span>or </span><span style="color:#bf616a;">blue </span><span>&gt; </span><span style="color:#d08770;">255 </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#b48ead;">break
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>then we see a long if, that checks that all three components: are <em>not</em> <code>nil</code> and <code>0 &lt;= value &lt;= 255</code></p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">local </span><span style="color:#bf616a;">color </span><span>= string.</span><span style="color:#96b5b4;">format</span><span>(&quot;</span><span style="color:#a3be8c;">%02x%02x%02x</span><span>&quot;, </span><span style="color:#bf616a;">red</span><span>, </span><span style="color:#bf616a;">green</span><span>, </span><span style="color:#bf616a;">blue</span><span>)
+</span></code></pre>
+<p>whats with that?? in lua <code>%x</code> formats a number as a hexadecimal (<a href="https://www.luadocs.com/docs/functions/string/format">doc</a>). but we also need the number to be always two digits long, thats what <code>02</code> is for, if its smaller than <code>10</code> (two characters) it <em>pads</em> (adds before it) a <code>0</code></p>
+<p>doing that for every component gives us the hexadecimal representation of the color</p>
+<p>then the next section is as before, for 'bg' or 'bg-fn' we do this we do that. the only difference for rgb is here:</p>
+<pre data-lang="lua" style="background-color:#2b303b;color:#c0c5ce;" class="language-lua "><code class="language-lua" data-lang="lua"><span style="color:#b48ead;">if </span><span style="color:#bf616a;">M</span><span>.opts.display == &#39;</span><span style="color:#a3be8c;">bg</span><span>&#39; </span><span style="color:#b48ead;">then
+</span><span>    </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>      </span><span style="color:#a3be8c;">virt_text </span><span>= {{string.</span><span style="color:#96b5b4;">format</span><span>(&quot;</span><span style="color:#a3be8c;">rgb(%d, %d, %d)</span><span>&quot;, </span><span style="color:#bf616a;">red</span><span>, </span><span style="color:#bf616a;">green</span><span>, </span><span style="color:#bf616a;">blue</span><span>), </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>      </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">overlay</span><span>&#39;,
+</span><span>    }
+</span><span style="color:#b48ead;">else
+</span><span>    </span><span style="color:#bf616a;">opts </span><span>= {
+</span><span>      </span><span style="color:#a3be8c;">virt_text </span><span>= {{&#39;</span><span style="color:#a3be8c;">rgb</span><span>&#39;, </span><span style="color:#bf616a;">color</span><span>}},
+</span><span>      </span><span style="color:#a3be8c;">virt_text_pos </span><span>= &#39;</span><span style="color:#a3be8c;">overlay</span><span>&#39;,
+</span><span>    }
+</span><span style="color:#b48ead;">end
+</span></code></pre>
+<p>we cant just use <code>'rgb' .. components</code> since we have parantheses, commas. so we just format it, in lua <code>%d</code> formats a number as an integer</p>
+<p>the process for setting the extmark is the same but instead of <code>color_index</code> we use <code>rgb_index</code>. and for <code>offset</code> we add <code>rpar + 1</code> which means start scanning after ')'</p>
+<p>then we have an <code>else</code>, branch that gets executed when neither 'rgb' nor a '#' are found, which means the line doesn't contain any color. in which case we set <code>offset</code> to <code>0</code> and we break the loop, going to parse the next line</p>
+<p>and...thats all!</p>
+
+
+    </div>
+  </section>
+</body>
+
+</html>
