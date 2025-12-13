@@ -39,3 +39,24 @@ a:hover {
   margin: 0 auto;
   padding: 0 1em;
 }
+
+pre {
+  background-color: #1E0E1E !important;
+  padding: 10px;
+  border-radius: 10px;
+  overflow: scroll;
+}
+
+code:not(pre code) {
+  background-color: #1E0E1E !important;
+  border-radius: 10px;
+  padding: 0 10px 0 10px;
+}
+
+code {
+  font-family: "DM Mono", monospace !important;
+}
+
+pre:not([data-lang]) {
+  color: #D785D7 !important;
+}
