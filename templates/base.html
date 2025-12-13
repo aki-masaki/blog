@@ -10,11 +10,11 @@
 <body>
   <div class="header">
     <h2>
-      <a href="/" style="text-decoration: none;">niki's blog</a>
+      <a href="{{ get_url(path="/") }}" style="text-decoration: none;">niki's blog</a>
     </h2>
     <nav>
       <a href="https://github.com/aki-masaki" target="_blank">github</a>
-      <a href="/blog/">posts</a>
+      <a href="{{ get_url(path="/posts/") }}">posts</a>
     </nav>
   </div>
   <section class="section">
