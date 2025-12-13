@@ -1,0 +1,8 @@
+base_url = "https://aki-masaki.github.io/blog"
+
+compile_sass = true
+
+build_search_index = false
+
+[markdown]
+highlight_code = false
