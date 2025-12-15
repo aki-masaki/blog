@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>MyBlog</title>
+  <link rel="stylesheet" href="https://aki-masaki.github.io/blog/style.css">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css" integrity="sha384-Pu5+C18nP5dwykLJOhd2U4Xen7rjScHN/qusop27hdd2drI+lL5KvX7YntvT8yew" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.js" integrity="sha384-2B8pfmZZ6JlVoScJm/5hQfNS2TI/6hPqDZInzzPc8oHpN5SgeNOf4LzREO6p5YtZ" crossorigin="anonymous"></script>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('math').forEach(item => {
+        console.log(item);
+
+        katex.render(item.textContent, item, {
+          throwOnError: false
+        });
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div class="header">
+    <h2>
+      <a href="https://aki-masaki.github.io/blog" style="text-decoration: none;">niki's blog</a>
+    </h2>
+    <nav>
+      <a href="https://github.com/aki-masaki" target="_blank">github</a>
+      <a href="https://aki-masaki.github.io/blog/posts">posts</a>
+    </nav>
+  </div>
+  <section class="section">
+    <div class="container">
+      
+<h1 class="title">
+  math: oriented segments
+</h1>
+<p class="subtitle"><strong>2025-12-15</strong></p>
+<p>i wanted to learn vectors, but to learn them i must learn oriented segments first...again, i'll use my 9th grade textbook as a guide to learn them</p>
+<p><strong>note</strong>: on wikipedia i found different notations than the ones in my textbook, for this post im gonna use the ones from my textbook</p>
+<p>if we have two points in the same plane, we can define the following:</p>
+<ul>
+<li>a straight line <math>AB</math> or <math>BA</math></li>
+<li>a closed line segment <math>[AB]</math> or <math>[BA]</math> (includes <math>A</math> and <math>B</math>)</li>
+<li>an open line segment <math>(AB)</math> or <math>(BA)</math> (<em>excludes</em> <math>A</math> and <math>B</math>)</li>
+<li>the distance between <math>A</math> and <math>B</math> (a real number, noted <math>AB</math>)</li>
+</ul>
+<p>the segment <math>[AB]</math> can be traversed both ways, from <math>A</math> to <math>B</math> and from <math>B</math> to <math>A</math>, because of that we introduce <em>oriented</em> or <em>directed</em> line segments which are noted as: <math>\overline{AB}</math> (from <math>A</math> to <math>B</math>) and <math>\overline{BA}</math> (from <math>B</math> to <math>A</math>)</p>
+<p>for <math>\overline{AB}</math>, <math>A</math> is called the <em>origin</em> and <math>B</math> is called the <em>extremity</em> (or head and tail)</p>
+<p>if <math>A=B</math> then we have <math>\overline{AB}=\overline{AA}</math> which we call a <em>null</em> segment. if <math>A\not=B</math> we call the segment a <em>non-null</em> segment</p>
+<p>for oriented segments, we can give the following definitions:</p>
+<ul>
+<li>
+<p>the length of <math>\overline{AB}</math> is equal to the length of <math>[AB]</math> and is noted as <math>|\overline{AB}|</math> or, simply <math>AB</math>. <math>|\overline{AA}|=0</math> (the length of a null segment is always <math>0</math>)</p>
+</li>
+<li>
+<p>the <em>supporting line</em> for <math>\overline{AB}</math> is <math>AB</math></p>
+</li>
+<li>
+<p>we can say that two oriented segments have the same <em>direction</em> if their supporting lines either are parraler or are equal</p>
+<p>from definition, a null oriented segment has the same direction as any other oriented segment, since it only has one point, there are infinite lines that can go through that point</p>
+</li>
+<li>
+<p>we can say that <math>\overline{AB}</math> and <math>\overline{A^{\prime}B^{\prime}}</math> have the same <em>sense</em> if they satisfy the following:</p>
+<ul>
+<li>have the same direction</li>
+<li>if <math>AB\not=A^{\prime}B^{\prime}</math> then <math>B</math> and <math>B^{\prime}</math> are in the same semi-plane as <math>AA^{\prime}</math></li>
+<li>if <math>AB=A^{\prime}B^{\prime}</math>, then the semi-line <math>[A^{\prime}B^{\prime}</math> is included in the semi-line <math>[AB</math> (or inverse)</li>
+</ul>
+</li>
+<li>
+<p>we will say that two oriented segments have <em>opposite</em> sense if they have the same <em>direction</em> but <em>not</em> the same <em>sense</em></p>
+</li>
+</ul>
+<h2 id="equipollence">equipollence</h2>
+<p>what a word...have a look at the <a href="https://www.merriam-webster.com/dictionary/equipollent">dictionary</a></p>
+<p>but basically, two oriented segments are <em>equipollent</em> if they have the same <em>length</em> and <em>sense</em>. we use the <em>tilde</em> (~) to denote that: <math>\overline{AB}\text{\textasciitilde}\overline{CD}</math></p>
+<p>next we're gonna look at three properties:</p>
+<ul>
+<li>let <math>A, B, C</math> and <math>D</math> be points
+<ol>
+<li><math>\overline{AB}\text{\textasciitilde}\overline{CD}\iff ABCD</math> is a parallelogram or <math>A, B, C, D</math> are on the same line and the segments <math>[AD], [BC]</math> have the same middle</li>
+<li><math>\overline{AB}\text{\textasciitilde}\overline{CD}\iff\overline{AC}\text{\textasciitilde}\overline{BC}</math></li>
+</ol>
+</li>
+<li>basic properties of equivalence
+<ol>
+<li><math>\overline{AB}\text{\textasciitilde}\overline{AB}</math></li>
+<li><math>\overline{AB}\text{\textasciitilde}\overline{CD}\Rightarrow\overline{CD}\text{\textasciitilde}\overline{AB}</math></li>
+<li><math>\overline{AB}\text{\textasciitilde}\overline{CD}</math> and <math>\overline{CD}\text{\textasciitilde}\overline{EF}\Rightarrow\overline{AB}\text{\textasciitilde}\overline{EF}</math></li>
+</ol>
+</li>
+<li>let <math>\overline{AB}</math> be an oriented segment. for every point <math>M</math> inside the same plane, there exists only one point <math>N</math> in the same plane such that <math>\overline{MN}\text{\textasciitilde}\overline{AB}</math></li>
+</ul>
+<p>and...thats all for segments!</p>
+
+
+    </div>
+  </section>
+</body>
+
+</html>
