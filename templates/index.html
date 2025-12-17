@@ -1,21 +1,24 @@
-{% extends "base.html" %}
-
-{% block content %}
-<h1>hello and welcome</h1>
+{% extends "base.html" %} {% block content %}
+<h1># welcome</h1>
 
 <p>
-this blog is a place where i can write my thoughts on the stuff that i'm doing. i like to imagine this blog as a little room with papers scattered everywhere
+  May this blog be home to my many toughts and let them take the shape of words.
 </p>
 
+<p>Hello :), I'm niki, an 18-year old boy from romania who fears God.</p>
+
+<br />
 <p>
-whoami? im niki, im 18 years old, im from romania and i fear God
+  Many thanks to the tools that made my blog possible:
+  <a href="https://www.getzola.org/" target="_blank">Zola</a>
+  for static site generation from .md files,
+  <a href="https://docs.github.com/en/pages" target="_blank">GitHub Pages</a>
+  for hosting this and
+  <a href="https://fonts.google.com/" target="_blank">Google Fonts</a> for this
+  beautiful typography:
+  <a href="https://fonts.google.com/specimen/DM+Mono" target="_blank"
+    >DM Mono</a
+  >
 </p>
 
-<p>
-that's a little about me, check out the <a href="{{ get_url(path="/posts/") }}">posts</a>
-</p>
-<br>
-<p>
-this blog uses the static site generator <a href="https://www.getzola.org/">zola</a> and the font <a href="https://fonts.google.com/specimen/DM+Mono">DM Mono</a>
-</p>
 {% endblock content %}

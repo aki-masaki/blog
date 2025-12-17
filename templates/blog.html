@@ -2,11 +2,17 @@
 
 {% block content %}
 <h1 class="title">
-  {{ section.title }}
+  # {{ section.title }}
 </h1>
-<ul>
+<div class="pages-list">
   {% for page in section.pages %}
-  <li><a href="{{ page.permalink | safe }}">{{ page.title }}</a></li>
+  <a href="{{ page.permalink | safe }}">
+    <div class="page-item">
+      title = {{ page.title }}<br>
+      date = {{ page.date }}<br>
+      word_count = {{ page.word_count }}
+    </div>
+  </a>
   {% endfor %}
-</ul>
+</div>
 {% endblock content %}
