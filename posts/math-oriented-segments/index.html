@@ -23,22 +23,34 @@
 </head>
 
 <body>
+  <div class="background-pattern">
+    <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="Pattern" x="0" y="0" width=".025" height=".025">
+          <text x="10" y="15">*</text>
+        </pattern>
+      </defs>
+
+      <rect fill="url(#Pattern)" width="100%" height="100%" />
+    </svg>
+  </div>
+
   <div class="header">
     <h2>
-      <a href="https://aki-masaki.github.io/blog" style="text-decoration: none;">niki's blog</a>
+      <a href="https://aki-masaki.github.io/blog" style="text-decoration: none;">niki->blog</a>
     </h2>
     <nav>
       <a href="https://github.com/aki-masaki" target="_blank">github</a>
-      <a href="https://aki-masaki.github.io/blog/posts">posts</a>
+      <a href="https://aki-masaki.github.io/blog/posts">papers</a>
     </nav>
   </div>
   <section class="section">
     <div class="container">
       
-<h1 class="title">
-  math: oriented segments
-</h1>
-<p class="subtitle"><strong>2025-12-15</strong></p>
+<h1 class="title"># math: oriented segments</h1>
+<p class="subtitle">
+  <strong>date = 2025-12-15, word_count = 698</strong>
+</p>
 <p>i wanted to learn vectors, but to learn them i must learn oriented segments first...again, i'll use my 9th grade textbook as a guide to learn them</p>
 <p><strong>note</strong>: on wikipedia i found different notations than the ones in my textbook, for this post im gonna use the ones from my textbook</p>
 <p>if we have two points in the same plane, we can define the following:</p>
@@ -96,8 +108,7 @@
 <li>let <math>\overline{AB}</math> be an oriented segment. for every point <math>M</math> inside the same plane, there exists only one point <math>N</math> in the same plane such that <math>\overline{MN}\text{\textasciitilde}\overline{AB}</math></li>
 </ul>
 <p>and...thats all for segments!</p>
-
-
+ 
     </div>
   </section>
 </body>

@@ -23,34 +23,76 @@
 </head>
 
 <body>
+  <div class="background-pattern">
+    <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="Pattern" x="0" y="0" width=".025" height=".025">
+          <text x="10" y="15">*</text>
+        </pattern>
+      </defs>
+
+      <rect fill="url(#Pattern)" width="100%" height="100%" />
+    </svg>
+  </div>
+
   <div class="header">
     <h2>
-      <a href="https://aki-masaki.github.io/blog" style="text-decoration: none;">niki's blog</a>
+      <a href="https://aki-masaki.github.io/blog" style="text-decoration: none;">niki->blog</a>
     </h2>
     <nav>
       <a href="https://github.com/aki-masaki" target="_blank">github</a>
-      <a href="https://aki-masaki.github.io/blog/posts">posts</a>
+      <a href="https://aki-masaki.github.io/blog/posts">papers</a>
     </nav>
   </div>
   <section class="section">
     <div class="container">
       
 <h1 class="title">
-  my posts
+  # papers
 </h1>
-<ul>
+<div class="pages-list">
   
-  <li><a href="https://aki-masaki.github.io/blog/posts/nature-as-medicine/">nature as medicine</a></li>
+  <a href="https://aki-masaki.github.io/blog/posts/nature-as-medicine/">
+    <div class="page-item">
+      title = nature as medicine<br>
+      date = 2025-12-16<br>
+      word_count = 341
+    </div>
+  </a>
   
-  <li><a href="https://aki-masaki.github.io/blog/posts/math-oriented-segments/">math: oriented segments</a></li>
+  <a href="https://aki-masaki.github.io/blog/posts/math-oriented-segments/">
+    <div class="page-item">
+      title = math: oriented segments<br>
+      date = 2025-12-15<br>
+      word_count = 698
+    </div>
+  </a>
   
-  <li><a href="https://aki-masaki.github.io/blog/posts/math-sequences/">math: sequences</a></li>
+  <a href="https://aki-masaki.github.io/blog/posts/math-sequences/">
+    <div class="page-item">
+      title = math: sequences<br>
+      date = 2025-12-14<br>
+      word_count = 869
+    </div>
+  </a>
   
-  <li><a href="https://aki-masaki.github.io/blog/posts/first/">my first post</a></li>
+  <a href="https://aki-masaki.github.io/blog/posts/first/">
+    <div class="page-item">
+      title = my first post<br>
+      date = 2025-12-13<br>
+      word_count = 235
+    </div>
+  </a>
   
-  <li><a href="https://aki-masaki.github.io/blog/posts/nvim-virtual-colors/">nvim virtual colors</a></li>
+  <a href="https://aki-masaki.github.io/blog/posts/nvim-virtual-colors/">
+    <div class="page-item">
+      title = nvim virtual colors<br>
+      date = 2025-12-13<br>
+      word_count = 1437
+    </div>
+  </a>
   
-</ul>
+</div>
 
     </div>
   </section>
