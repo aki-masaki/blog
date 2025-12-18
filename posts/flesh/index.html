@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>MyBlog</title>
+  <link rel="stylesheet" href="https://aki-masaki.github.io/blog/style.css">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.css" integrity="sha384-Pu5+C18nP5dwykLJOhd2U4Xen7rjScHN/qusop27hdd2drI+lL5KvX7YntvT8yew" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.27/dist/katex.min.js" integrity="sha384-2B8pfmZZ6JlVoScJm/5hQfNS2TI/6hPqDZInzzPc8oHpN5SgeNOf4LzREO6p5YtZ" crossorigin="anonymous"></script>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('math').forEach(item => {
+        console.log(item);
+
+        katex.render(item.textContent, item, {
+          throwOnError: false
+        });
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div class="background-pattern">
+    <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="Pattern" x="0" y="0" width=".025" height=".025">
+          <text x="10" y="15">*</text>
+        </pattern>
+      </defs>
+
+      <rect fill="url(#Pattern)" width="100%" height="100%" />
+    </svg>
+  </div>
+
+  <div class="header">
+    <h2>
+      <a href="https://aki-masaki.github.io/blog" style="text-decoration: none;">niki->blog</a>
+    </h2>
+    <nav>
+      <a href="https://github.com/aki-masaki" target="_blank">github</a>
+      <a href="https://aki-masaki.github.io/blog/posts">papers</a>
+    </nav>
+  </div>
+  <section class="section">
+    <div class="container">
+      
+<h1 class="title"># flesh: a shell</h1>
+<p class="subtitle">
+  <strong>date = 2025-12-18, word_count = 677</strong>
+</p>
+<p>Today we're gonna build a shell in C! Many thanks to <a href="https://brennan.io/2015/01/16/write-a-shell-in-c/">Stephen Brennan</a> for writing a tutorial for it and putting me in the right direction, but we're gonna do it from scratch for learning.</p>
+<p>What does a shell do? It asks the user for a command, then executes that command. Simple enough.</p>
+<p>We're gonna use <a href="https://www.man7.org/linux/man-pages/man3/getline.3.html">getline</a> (<code>stdio.h</code>) to read lines, here is an example where the program reads from <code>stdin</code> and prints it back:</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#b48ead;">char </span><span>*line = </span><span style="color:#d08770;">NULL</span><span>;
+</span><span>size_t size = </span><span style="color:#d08770;">0</span><span>;
+</span><span>
+</span><span style="color:#bf616a;">printf</span><span>(&quot;</span><span style="color:#a3be8c;">speak your command: </span><span>&quot;);
+</span><span style="color:#bf616a;">getline</span><span>(&amp;line, &amp;size, stdin);
+</span><span>
+</span><span style="color:#bf616a;">printf</span><span>(&quot;</span><span style="color:#a3be8c;">received: </span><span style="color:#d08770;">%s</span><span>&quot;, line);
+</span><span>
+</span><span style="color:#bf616a;">free</span><span>(line);
+</span></code></pre>
+<p>First we initialize <code>line</code> to <code>NULL</code>, this is because <code>getline</code> automatically allocs the memory for it. <code>size</code> will be the size of the line. <strong>Important:</strong> the line <em>must</em> be freed, no matter if <code>getline</code> fails or succeeds.</p>
+<p>But what's the use of it if it doesn't execute anything? To do that, we must split the line into <em>arguments</em> (for example the command <code>nvim main.c</code> has two arguments: <code>nvim</code> and <code>main.c</code>). For splitting we're gonna use <a href="https://www.man7.org/linux/man-pages/man3/strtok.3.html">strtok</a> (<code>string.h</code>):</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#b48ead;">int</span><span> argc = </span><span style="color:#d08770;">0</span><span>;
+</span><span style="color:#b48ead;">char </span><span>**args = (</span><span style="color:#b48ead;">char </span><span>**)</span><span style="color:#96b5b4;">malloc</span><span>(ARGS_MAX_COUNT * sizeof(</span><span style="color:#b48ead;">char </span><span>*));
+</span><span style="color:#b48ead;">char </span><span>*token = </span><span style="color:#96b5b4;">strtok</span><span>(line, &quot; &quot;);
+</span><span>size_t token_len = </span><span style="color:#96b5b4;">strlen</span><span>(token);
+</span><span>
+</span><span style="color:#b48ead;">while </span><span>(</span><span style="color:#d08770;">1</span><span>) {
+</span><span>  args[argc] = (</span><span style="color:#b48ead;">char </span><span>*)</span><span style="color:#96b5b4;">malloc</span><span>(token_len);
+</span><span>  </span><span style="color:#96b5b4;">memcpy</span><span>(args[argc], token, token_len);
+</span><span>
+</span><span>  argc++;
+</span><span>  token = </span><span style="color:#96b5b4;">strtok</span><span>(</span><span style="color:#d08770;">NULL</span><span>, &quot; &quot;);
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">if </span><span>(token == </span><span style="color:#d08770;">NULL</span><span>)
+</span><span>    </span><span style="color:#b48ead;">break</span><span>;
+</span><span>
+</span><span>  token_len = </span><span style="color:#96b5b4;">strlen</span><span>(token);
+</span><span>}
+</span></code></pre>
+<p><code>argc</code> will be the count of our arguments. <code>args</code> is an array of char arrays (technically its a pointer to a pointer). <code>token</code> is the current word (first call to <code>strtok</code> will return the string from the start to the delimiter, in this case the first word). <code>token_len</code> is the length of the current word. Then we create an infinite loop? nope, we'll break out of it when the line ends (<code>token</code> is <code>NULL</code>). Inside the loop we allocate memory to <code>args[argc]</code> and then copy <code>token_len</code> bytes of memory from <code>token</code> to <code>args[argc]</code>. Then we call <code>strtok</code> again, but this time with <code>NULL</code> so it parses the same string as before (it continues parsing). I defined <code>ARGS_MAX_COUNT</code> as 32.</p>
+<p><strong>Important</strong>: don't forget to <code>free(args)</code> later!</p>
+<p>Note: after peeking at Stephen Brennan's tutorial I realised I could set directly: <code>args[argc] = token</code>.</p>
+<p>We can also move the code to a function:</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#b48ead;">char </span><span>**</span><span style="color:#8fa1b3;">get_args</span><span>(</span><span style="color:#b48ead;">char </span><span>*</span><span style="color:#bf616a;">line</span><span>, </span><span style="color:#b48ead;">int </span><span>*</span><span style="color:#bf616a;">out_argc</span><span>) {
+</span><span>  </span><span style="color:#b48ead;">int</span><span> argc = </span><span style="color:#d08770;">0</span><span>;
+</span><span>  </span><span style="color:#b48ead;">char </span><span>**args = (</span><span style="color:#b48ead;">char </span><span>**)</span><span style="color:#96b5b4;">malloc</span><span>(ARGS_MAX_COUNT * sizeof(</span><span style="color:#b48ead;">char </span><span>*));
+</span><span>  </span><span style="color:#b48ead;">char </span><span>*token = </span><span style="color:#96b5b4;">strtok</span><span>(line, &quot; &quot;);
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">while </span><span>(token != </span><span style="color:#d08770;">NULL</span><span>) {
+</span><span>    args[argc++] = token;
+</span><span>
+</span><span>    token = </span><span style="color:#96b5b4;">strtok</span><span>(</span><span style="color:#d08770;">NULL</span><span>, &quot; &quot;);
+</span><span>  }
+</span><span>
+</span><span>  *out_argc = argc;
+</span><span>  </span><span style="color:#b48ead;">return</span><span> args;
+</span><span>}
+</span></code></pre>
+<p>and call it like this in <code>main</code>:</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#b48ead;">int</span><span> argc = </span><span style="color:#d08770;">0</span><span>;
+</span><span style="color:#b48ead;">char </span><span>**args = </span><span style="color:#bf616a;">get_args</span><span>(line, &amp;argc);
+</span></code></pre>
+<p><strong>Another update**</strong>: I ran into a problem where executing a single command would always give the error: <code>error: No such file or directory</code> and i spent some good time on it before realising that the last argument included a <code>\n</code> for example inputing <code>echo</code> would result in <code>echo\n</code> and the system couldn't find that in path and couldn't execute it! We can fix this by adding these lines in <code>get_args</code> after the while loop:</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#b48ead;">if </span><span>(argc &gt; </span><span style="color:#d08770;">0</span><span>) {
+</span><span>  </span><span style="color:#b48ead;">int</span><span> arg_len = </span><span style="color:#96b5b4;">strlen</span><span>(args[argc - </span><span style="color:#d08770;">1</span><span>]);
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">if </span><span>(args[argc - </span><span style="color:#d08770;">1</span><span>][arg_len - </span><span style="color:#d08770;">1</span><span>] == &#39;</span><span style="color:#96b5b4;">\n</span><span>&#39;)
+</span><span>    args[argc - </span><span style="color:#d08770;">1</span><span>][arg_len - </span><span style="color:#d08770;">1</span><span>] = &#39;</span><span style="color:#96b5b4;">\0</span><span>&#39;; </span><span style="color:#65737e;">// replace \n with \0
+</span><span>}
+</span></code></pre>
+<p>Next we want to execute some things! We're gonna use <a href="https://www.man7.org/linux/man-pages/man2/fork.2.html">fork</a> (<code>unistd.h</code>) for that which duplicates the process. It returns -1 upon error, 0 for the child process and the <code>pid</code> of the parent process for the parent process. We're also gonna use <a href="https://man7.org/linux/man-pages/man3/wait.3p.html">waitpid</a> (<code>sys/wait.h</code>) to wait for changes in the child process.</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#b48ead;">int </span><span style="color:#8fa1b3;">execute</span><span>(</span><span style="color:#b48ead;">char </span><span>**</span><span style="color:#bf616a;">args</span><span>) {
+</span><span>  pid_t pid = </span><span style="color:#bf616a;">fork</span><span>();
+</span><span>  </span><span style="color:#b48ead;">int</span><span> status;
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">if </span><span>(pid == -</span><span style="color:#d08770;">1</span><span>) {
+</span><span>    </span><span style="color:#b48ead;">return </span><span>-</span><span style="color:#d08770;">1</span><span>;
+</span><span>  } </span><span style="color:#b48ead;">else if </span><span>(pid == </span><span style="color:#d08770;">0</span><span>) {
+</span><span>    </span><span style="color:#65737e;">// child process
+</span><span>    </span><span style="color:#b48ead;">if </span><span>(</span><span style="color:#bf616a;">execvp</span><span>(args[</span><span style="color:#d08770;">0</span><span>], args) == -</span><span style="color:#d08770;">1</span><span>) {
+</span><span>      </span><span style="color:#96b5b4;">exit</span><span>(</span><span style="color:#d08770;">0</span><span>);
+</span><span>    }
+</span><span>  } </span><span style="color:#b48ead;">else </span><span>{
+</span><span>    </span><span style="color:#65737e;">// parent process
+</span><span>    </span><span style="color:#bf616a;">waitpid</span><span>(pid, &amp;status, WUNTRACED);
+</span><span>
+</span><span>    </span><span style="color:#b48ead;">while </span><span>(status != </span><span style="color:#bf616a;">WIFEXITED</span><span>(status) &amp;&amp; status != </span><span style="color:#bf616a;">WIFSIGNALED</span><span>(status)) {
+</span><span>      </span><span style="color:#bf616a;">waitpid</span><span>(pid, &amp;status, WUNTRACED);
+</span><span>    }
+</span><span>  }
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">return </span><span style="color:#d08770;">0</span><span>;
+</span><span>}
+</span></code></pre>
+<p>So what this function does is it <em>forks</em> (clones) our program, the child will execute the <code>else if (pid == 0)</code> and the parent will execute the <code>else</code>. The child executes using <a href="https://www.man7.org/linux/man-pages/man3/exec.3.html">execvp</a> from which v - vector, the second argument is a vector (array) of arguments and p - path, it will ask the system for the full path of the program (from $PATH). If it fails it returns -1. Now the parent waits for changes in the child process, and it waits until it is exited or killed. <code>execute</code> is called in main like this:</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#b48ead;">int</span><span> status = </span><span style="color:#bf616a;">execute</span><span>(args);
+</span><span>
+</span><span style="color:#b48ead;">if </span><span>(status == -</span><span style="color:#d08770;">1</span><span>) {
+</span><span>  </span><span style="color:#96b5b4;">perror</span><span>(&quot;</span><span style="color:#a3be8c;">flesh</span><span>&quot;);
+</span><span>}
+</span></code></pre>
+<p>We also have to handle shell builtins now, we're gonna implement: <code>cd</code> and <code>exit</code> with simple if's. We're also gonna wrap everything in a while loop. Here is the full <code>main</code> function:</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#b48ead;">int </span><span style="color:#8fa1b3;">main</span><span>() {
+</span><span>  </span><span style="color:#b48ead;">char </span><span>*line = </span><span style="color:#d08770;">NULL</span><span>;
+</span><span>  size_t size = </span><span style="color:#d08770;">0</span><span>;
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">int</span><span> argc = </span><span style="color:#d08770;">0</span><span>;
+</span><span>  </span><span style="color:#b48ead;">char </span><span>**args = </span><span style="color:#d08770;">NULL</span><span>;
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">int</span><span> status = </span><span style="color:#d08770;">0</span><span>;
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">while </span><span>(</span><span style="color:#d08770;">1</span><span>) {
+</span><span>    </span><span style="color:#96b5b4;">free</span><span>(line);
+</span><span>    line = </span><span style="color:#d08770;">NULL</span><span>;
+</span><span>
+</span><span>    </span><span style="color:#96b5b4;">printf</span><span>(&quot;</span><span style="color:#a3be8c;">-&gt; </span><span>&quot;);
+</span><span>    </span><span style="color:#bf616a;">getline</span><span>(&amp;line, &amp;size, stdin);
+</span><span>
+</span><span>    argc = </span><span style="color:#d08770;">0</span><span>;
+</span><span>    </span><span style="color:#96b5b4;">free</span><span>(args);
+</span><span>    args = </span><span style="color:#d08770;">NULL</span><span>;
+</span><span>
+</span><span>    args = </span><span style="color:#bf616a;">get_args</span><span>(line, &amp;argc);
+</span><span>
+</span><span>    </span><span style="color:#b48ead;">if </span><span>(</span><span style="color:#96b5b4;">strcmp</span><span>(args[</span><span style="color:#d08770;">0</span><span>], &quot;</span><span style="color:#a3be8c;">cd</span><span>&quot;) == </span><span style="color:#d08770;">0</span><span>) {
+</span><span>      </span><span style="color:#b48ead;">if </span><span>(args[</span><span style="color:#d08770;">1</span><span>] == </span><span style="color:#d08770;">NULL</span><span>) {
+</span><span>        </span><span style="color:#96b5b4;">printf</span><span>(&quot;</span><span style="color:#a3be8c;">cd where?</span><span style="color:#96b5b4;">\n</span><span>&quot;);
+</span><span>      } </span><span style="color:#b48ead;">else </span><span>{
+</span><span>        </span><span style="color:#b48ead;">if </span><span>(</span><span style="color:#bf616a;">chdir</span><span>(args[</span><span style="color:#d08770;">1</span><span>]) != </span><span style="color:#d08770;">0</span><span>)
+</span><span>          </span><span style="color:#96b5b4;">perror</span><span>(&quot;</span><span style="color:#a3be8c;">flesh</span><span>&quot;);
+</span><span>      }
+</span><span>    } </span><span style="color:#b48ead;">else if </span><span>(</span><span style="color:#96b5b4;">strcmp</span><span>(args[</span><span style="color:#d08770;">0</span><span>], &quot;</span><span style="color:#a3be8c;">exit</span><span>&quot;) == </span><span style="color:#d08770;">0</span><span>) {
+</span><span>      </span><span style="color:#96b5b4;">exit</span><span>(</span><span style="color:#d08770;">0</span><span>);
+</span><span>    } </span><span style="color:#b48ead;">else </span><span>{
+</span><span>      status = </span><span style="color:#bf616a;">execute</span><span>(args);
+</span><span>
+</span><span>      </span><span style="color:#b48ead;">if </span><span>(status == -</span><span style="color:#d08770;">1</span><span>) {
+</span><span>        </span><span style="color:#96b5b4;">perror</span><span>(&quot;</span><span style="color:#a3be8c;">flesh</span><span>&quot;);
+</span><span>      }
+</span><span>    }
+</span><span>  }
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">return </span><span style="color:#d08770;">0</span><span>;
+</span><span>}
+</span></code></pre>
+<p>One last thing I want to implement and that's expanding <code>~</code> to $HOME envinorment variable. In <code>get_args</code>, beside <code>args[argc++] = token</code> we also add:</p>
+<pre data-lang="c" style="background-color:#2b303b;color:#c0c5ce;" class="language-c "><code class="language-c" data-lang="c"><span style="color:#65737e;">// expand ~ to $HOME
+</span><span style="color:#b48ead;">if </span><span>(token[</span><span style="color:#d08770;">0</span><span>] == &#39;</span><span style="color:#a3be8c;">~</span><span>&#39;) {
+</span><span>  </span><span style="color:#b48ead;">char </span><span>*home = </span><span style="color:#96b5b4;">getenv</span><span>(&quot;</span><span style="color:#a3be8c;">HOME</span><span>&quot;);
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">int</span><span> home_len = </span><span style="color:#96b5b4;">strlen</span><span>(home);
+</span><span>  </span><span style="color:#b48ead;">int</span><span> token_len = </span><span style="color:#96b5b4;">strlen</span><span>(token);
+</span><span>
+</span><span>  </span><span style="color:#b48ead;">if </span><span>(token_len == </span><span style="color:#d08770;">2 </span><span>&amp;&amp; token[</span><span style="color:#d08770;">1</span><span>] == &#39;</span><span style="color:#96b5b4;">\n</span><span>&#39;) {
+</span><span>    token_len = </span><span style="color:#d08770;">1</span><span>;
+</span><span>    token[</span><span style="color:#d08770;">1</span><span>] = &#39;</span><span style="color:#96b5b4;">\0</span><span>&#39;;
+</span><span>  }
+</span><span>
+</span><span>  </span><span style="color:#65737e;">// its just ~
+</span><span>  </span><span style="color:#b48ead;">if </span><span>(token_len == </span><span style="color:#d08770;">1</span><span>) {
+</span><span>    args[argc] = </span><span style="color:#96b5b4;">malloc</span><span>(home_len + </span><span style="color:#d08770;">1</span><span>);
+</span><span>
+</span><span>    </span><span style="color:#96b5b4;">memcpy</span><span>(args[argc], home, home_len);
+</span><span>
+</span><span>    args[argc][home_len] = &#39;</span><span style="color:#96b5b4;">\0</span><span>&#39;;
+</span><span>  } </span><span style="color:#b48ead;">else </span><span>{
+</span><span>    args[argc] = </span><span style="color:#96b5b4;">malloc</span><span>(
+</span><span>        home_len + token_len); </span><span style="color:#65737e;">// we don&#39;t need to add one since token_len
+</span><span>                               </span><span style="color:#65737e;">// has one extra char that we won&#39;t use: ~
+</span><span>
+</span><span>    </span><span style="color:#96b5b4;">snprintf</span><span>(args[argc], home_len + token_len, &quot;</span><span style="color:#d08770;">%s%s</span><span>&quot;, home,
+</span><span>             token + </span><span style="color:#d08770;">1</span><span>); </span><span style="color:#65737e;">// token + 1 so we skip ~
+</span><span>  }
+</span><span>
+</span><span>  argc++;
+</span><span>} </span><span style="color:#b48ead;">else </span><span>{
+</span><span>  args[argc++] = token;
+</span><span>}
+</span></code></pre>
+<p>That's it! To run it: <code>gcc main.c -o flesh -O3 &amp;&amp; ./flesh</code>. This is a very primitive shell probably filled with bugs but we learned something today! God bless.</p>
+ 
+    </div>
+  </section>
+</body>
+
+</html>
